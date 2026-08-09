@@ -86,7 +86,9 @@ Activate the relevant skill when working on that concern:
 | `security`       | Auth, authorization, vulnerabilities, AI safety, secrets   |
 | `architecture`   | System design, layered architecture, repository structure  |
 | `backend`        | API design, external APIs, caching, payments               |
-| `frontend`       | UI states, components, accessibility, responsive design    |
+| `frontend`       | UI states, components, accessibility, responsive design, EyuTheme |
 | `database`       | Schema design, integrity, SQL performance, backups         |
 | `testing`        | Test strategy, error handling, code review                 |
 | `devops`         | CI/CD, Docker, deployment, observability, Git              |
+| `handoff`        | Agent/session handoffs, context transfer, continuation     |
+| `skill-creator`  | Authoring new skills: structure, frontmatter, verification |
