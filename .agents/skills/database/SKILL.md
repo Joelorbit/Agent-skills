@@ -1,41 +1,38 @@
 ---
 name: database
 description: >-
-  Database engineering standard covering schema design, referential integrity,
-  SQL query performance, and migration procedures. Activate when interacting with database layers.
+  Database engineering for schemas, constraints, query performance, transactions, migrations, backups, and recovery.
+  Activate when changing persistence, SQL, indexes, data access, or database operations.
 ---
 
-# Database Engineering Standard
+# Database: Integrity and Recovery
 
-## 1. Schema Design & Referential Integrity
-Data integrity must be enforced directly in the database engine, never exclusively in the application logic.
-- **Normalization:** Start with Third Normal Form (3NF). Only denormalize when profiling proves a performance bottleneck.
-- **Strict Constraints:**
-  - Mark columns `NOT NULL` by default.
-  - Enforce string limits (`VARCHAR(255)` instead of unchecked `TEXT` unless unlimited text is needed).
-  - Use `CHECK` constraints to enforce valid value ranges (e.g., `CHECK (price_cents >= 0)`).
-- **Foreign Keys:** Always define foreign keys with explicit delete behaviors (e.g., `ON DELETE RESTRICT` or `ON DELETE CASCADE`). Never allow orphaned rows.
-- **Uniqueness:** Use unique indexes to prevent duplicates.
-  - *Bad:* Querying if a record exists in application code, then inserting (prone to race conditions).
-  - *Good:* Define a `UNIQUE` constraint, attempt insertion, and catch the unique violation exception.
+## Default workflow
 
-## 2. SQL Query Performance
-- **Eager Loading:** Avoid N+1 query patterns. Eager load relations or use batch dataloaders in API/GraphQL endpoints.
-- **Index Optimization:**
-  - Create indexes for columns used in `WHERE` clauses, join conditions, and `ORDER BY` fields.
-  - Use composite indexes carefully. Keep the leftmost column prefix rules in mind.
-  - Avoid indexing high-write, low-read columns to preserve write performance.
-- **Query Plans:** Inspect execution plans (`EXPLAIN ANALYZE` in PostgreSQL) for queries on tables exceeding 50,000 rows. Avoid sequential scans on indexable fields.
-- **Cursor Pagination:** Use cursor-based pagination (e.g., `WHERE id > :last_id LIMIT :limit`) for large tables. Avoid deep offset queries (`LIMIT :limit OFFSET :offset`), as they require scanning all skipped rows.
+1. Read the current schema, migration history, data volume, access patterns, retention rules, and backup/recovery posture.
+2. Define invariants and ownership first; enforce correctness in database constraints as well as application validation.
+3. Design queries and indexes from actual filters, joins, ordering, cardinality, and write cost. Inspect plans for important or large-table queries.
+4. Keep transactions short and atomic; never hold one open across a slow network call or unbounded computation.
+5. Write a forward migration, compatibility plan, verification query, and rollback or recovery procedure. Test against representative data.
 
-## 3. Transaction Boundaries & Locks
-- **Atomicity:** Wrap multi-row operations that must succeed or fail together inside database transactions.
-- **Short Transactions:** Keep transactions as short as possible. Do not execute slow network requests, external API calls, or CPU-heavy parsing inside a database transaction block.
-- **Lock Prevention:** Access tables in a consistent alphabetical or dependency order across all application flows to prevent deadlocks.
+## Schema rules
 
-## 4. Migration Strategy
-- **Version Control:** All database changes must be written as version-controlled migration files. Never make manual schema changes in production.
-- **Zero-Downtime:** Schema changes must be backward compatible with currently running application code.
-  - *Adding Columns:* Add as nullable or with a default value.
-  - *Renaming Columns:* Add a new column, dual-write to both, copy historical data, update reads to the new column, and drop the old column.
-- **Rollback Verification:** Write and test rollbacks for every schema migration.
+Start normalized and denormalize only for a measured reason. Use `NOT NULL` where absence is invalid, bounded types where limits exist, `CHECK` constraints for ranges and enumerations, foreign keys with explicit delete behavior, and unique constraints for business uniqueness. Treat a constraint violation as a concurrency-safe signal to handle, not as a reason to duplicate the same check in application code.
+
+Name ownership and lifecycle explicitly. Decide whether records are deleted, archived, or soft-deleted; apply the policy consistently to queries, uniqueness, indexes, and retention jobs. Store times with an explicit timezone convention and use integer minor units or a precise decimal strategy for money.
+
+## Query and index rules
+
+Parameterize all values. Avoid N+1 access with joins, batching, or dataloaders. Add indexes for proven selective filters, joins, and orderings, but account for write amplification and left-prefix behavior in composite indexes. Use `EXPLAIN` or `EXPLAIN ANALYZE` for performance-sensitive queries and verify the plan after data growth. Prefer stable cursor pagination for large or changing result sets; use offset only when its semantics and cost are acceptable.
+
+## Transactions and concurrency
+
+Define the invariant that requires atomicity, then keep the transaction to the smallest set of reads and writes that protect it. Lock rows or use optimistic concurrency deliberately. Access shared resources in a consistent order where multiple locks are possible. Make retries safe by using idempotency keys, unique constraints, or version checks.
+
+## Migrations and recovery
+
+Never make an unrecorded production schema change. Prefer expand-and-contract changes: add compatible structures, deploy code that can read both when needed, backfill in bounded batches, switch reads, then remove obsolete structures only after an observation window. Avoid large table rewrites during peak traffic. Test migration runtime, locks, verification queries, rollback limits, backup restore, and application compatibility; remember that some data migrations are safer to restore forward than to reverse destructively.
+
+## Done when
+
+Invariants are enforced, queries are parameterized and plan-checked, transactions are bounded, migration and compatibility behavior are explicit, backups and restore assumptions are tested, and the change includes representative data or failure tests.

@@ -1,60 +1,49 @@
 ---
 name: frontend
 description: >-
-  Frontend engineering standard covering UI states, component design,
-  accessibility (a11y), responsive layouts, and performance. Activate when building UI features.
+  Frontend engineering for interaction states, component composition, accessibility, responsive layout, and client performance.
+  Activate when building or reviewing UI, forms, client data flows, or browser-facing behavior.
 ---
 
-# Frontend Engineering Standard
+# Frontend: Usable and Resilient Interfaces
 
-## 1. UI State Coverage
-Never design or implement a user interface that only handles the "happy path." Every component interacting with network data or user inputs must account for six states:
+## Default workflow
 
-| UI State | Target Behavior | Requirement |
-| :--- | :--- | :--- |
-| **Loading** | Indicated progress | Skeleton loaders or spinners. Avoid layout shifts. |
-| **Empty** | No items to show | Friendly message with an action button (e.g., "Create project"). |
-| **Error** | Actionable failure | Non-technical description, error logs mapped, retry button. |
-| **Success** | Successful fetch/save | Render complete data. Show clear confirmation for mutations. |
-| **Partial Data** | Partial rendering | Degrade gracefully if some columns or cards fail to load. |
-| **Offline** | Network drop | Banners informing the user. Disable state mutations. |
+1. Inspect the existing framework, design tokens, component library, routing, data-fetching conventions, and browser support targets.
+2. Define the user task, semantic structure, interaction states, validation behavior, and keyboard path before styling.
+3. Compose existing primitives before creating new ones; keep data fetching and state orchestration separate from presentational components.
+4. Implement mobile-first responsive behavior and accessible semantics, then verify loading, empty, error, success, partial, offline, and permission states.
+5. Check performance, reduced motion, focus management, and real viewport behavior with the project's available tooling.
 
-## 2. Component Design & Composition
-- **Separation of Concerns:** Separate data-fetching containers from presentation-only UI components.
-- **Single Responsibility:** A component should do one logical job. Break down components larger than 250 lines.
-- **Props-Driven:** Component behaviors should be predictable and configurable via explicit, strongly-typed props.
+## State coverage
 
-## 3. Responsive Layouts & Styling
-- **Mobile First:** Design layouts for small devices first, then apply media queries for larger displays.
-- **No Hardcoded Breakpoints:** Use logical layouts (flexbox, grid) and standardized media queries.
-- **Touch Targets:** Interactive elements (buttons, links, form inputs) must have a minimum touch target size of 44x44px.
-- **Overflow Prevention:** Ensure text breaks properly. Never allow content to cause horizontal scrolling on viewport widths >320px.
+Every network- or input-driven feature must intentionally handle:
 
-## 4. Accessibility (a11y) Rules
-Accessibility is a measure of code correctness, not an optional feature.
-- **Semantic HTML:** Use native elements (`<button>`, `<a href>`, `<nav>`, `<main>`, `<article>`) instead of divs with custom click handlers.
-- **Keyboard Navigation:** Every interactive element must be reachable using `Tab` and triggerable using `Enter` or `Space`.
-- **Focus Outlines:** Never remove focus outlines (`outline: none`) without providing a custom, high-contrast focus indicator.
-- **Labels:** Every input element must be programmatically associated with a `<label>`. Use `aria-label` or `aria-labelledby` where visual labels are not possible.
-- **Contrast:** Ensure all text passes WCAG AA contrast rules (minimum 4.5:1 for normal text, 3:1 for large text).
-- **Reduced Motion:** Respect system settings by disabling non-essential transitions using `prefers-reduced-motion` media queries.
+| State | Required behavior |
+| --- | --- |
+| Loading | Preserve layout, show progress, and prevent duplicate mutation. |
+| Empty | Explain why there is no content and offer the next useful action. |
+| Error | Use a non-technical message, preserve recoverability, and provide retry or support context. |
+| Success | Show the result and confirm important mutations. |
+| Partial | Render available content without implying missing data is complete. |
+| Offline or unauthorized | Explain the condition and disable or redirect actions safely. |
 
-## 5. Frontend Performance
-- **Image Optimization:** Always use responsive image sizes (`srcset`) and next-gen formats (WebP, AVIF). Add explicit height/width to prevent layout shifts (CLS).
-- **Lazy Loading:** Dynamically import components, routes, and below-the-fold images.
-- **Bundle Control:** Keep bundle sizes low. Tree-shake libraries. Prefer lightweight native APIs over massive npm dependencies.
+## Composition and responsive rules
 
-## 6. Design System: EyuTheme (MANDATORY)
+Prefer semantic HTML and explicit, typed props. Keep components focused; split a component when its state, markup, or responsibility becomes difficult to test, not only when it crosses an arbitrary line count. Use the project's tokens and layout primitives rather than scattering raw colors, spacing, radii, or breakpoints. Design from small viewports upward, prevent horizontal overflow at widths above **320px**, and make interactive targets at least **44×44 CSS pixels** where the platform allows.
 
-All frontend work uses the **EyuTheme** design system (`Joelorbit/Mytheme`). Do not invent ad-hoc colors, fonts, radii, or spacing. Copy the design tokens and adapt components to the target framework; never redesign the theme.
+## Accessibility baseline
 
-- **Token Contract:** `src/lib/tokens.css` is the single source of truth. No hex/oklch values outside it — reference tokens by CSS variable.
-- **Palette:** Neutral oklch ramp (`--n-50` → `--n-1000`), blue-violet accent (`--accent: oklch(0.52 0.17 265)`), gold complement (`--complement: oklch(0.65 0.14 60)`), status colors (`--success/--warning/--danger`).
-- **Typography:** `--font-display: 'Outfit'`, `--font-body: 'Lexend'`, `--font-mono: 'JetBrains Mono'`. Use the 1.333x type scale tokens (`--display-lg` → `--caption`) with matching line-heights and tracking.
-- **Dark Default:** Dark is the default (`:root`). Light mode via `[data-theme='light']` — re-theme by overriding the neutral ramp only, never individual components.
-- **Spacing:** 8pt grid (`--space-0` → `--space-12`). Radius `--radius-*`, shadows `--shadow-1..3`, motion `--dur-*` / `--ease-*` from tokens.
-- **Texture:** Fine digital-noise grain (`--grain-svg` / `--grain-opacity`) and plus pattern are part of the brand — apply subtly, never overdo.
-- **Components:** Reuse existing UI components (Button, Card, Badge, Dialog, Input, Table, Skeleton, EmptyState, Select, Separator, MicroLabel, BookingCard, ThemeToggle) from `src/lib/components/ui/`. Composition over inheritance: slots + snippets, thin extensible components, state in / callbacks out (e.g., `Dialog` takes `open` + `onClose`).
-- **Naming:** BEM-ish `block__element--modifier`. Svelte 5 + Tailwind 4. No duplicated styles: one component, one file, one concern.
+Use native buttons, links, labels, headings, landmarks, and form controls before ARIA. Ensure every control has an accessible name, keyboard operation, visible high-contrast focus indicator, and useful error association. Meet WCAG AA contrast targets of **4.5:1** for normal text and **3:1** for large text. Manage focus after dialogs, route changes, and validation failures. Respect `prefers-reduced-motion`; never communicate essential meaning only through color or animation.
 
-**Rule:** if a design decision isn't in the tokens, extend `tokens.css` following the existing ramp/mix patterns — never scatter raw values through components.
+## Performance baseline
+
+Reserve image dimensions to avoid layout shift, use responsive sources and modern formats where supported, lazy-load below-the-fold work, and avoid shipping a large dependency for a small capability. Measure before optimizing. Treat bundle size, interaction latency, and cumulative layout shift as project-specific budgets rather than universal magic numbers.
+
+## Design-system rule
+
+Follow the target repository's existing design system. If the project explicitly uses EyuTheme, read `references/eyutheme.md` before changing visual tokens or shared components. If it uses another system, use that system instead; do not import EyuTheme or invent a second theme.
+
+## Done when
+
+The feature works across its defined viewports and input methods, all relevant states are covered, semantics and keyboard access are correct, visual tokens are reused, performance regressions are checked, and automated or manual verification is recorded.

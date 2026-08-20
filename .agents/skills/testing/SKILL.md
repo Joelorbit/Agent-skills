@@ -1,50 +1,50 @@
 ---
 name: testing
 description: >-
-  Quality assurance standard covering unit, integration, and E2E testing strategies,
-  resilient error handling, and code review criteria. Activate when writing tests or reviews.
+  Software testing and review for unit, integration, end-to-end, regression, failure-path, and code-quality verification.
+  Activate when writing tests, debugging behavior, reviewing a change, or assessing release confidence.
 ---
 
-# Testing & Quality Standard
+# Testing: Evidence of Behavior
 
-## 1. Test Pyramid & Execution
-Quality is verified at multiple levels. Focus testing effort where confidence is highest relative to run cost:
+## Default workflow
 
-```
-        E2E          ◄── Few: Test critical user flows end-to-end
-       /   \
-  Integration        ◄── Moderate: Database integrations, API handlers
-     /       \
-       Unit          ◄── Many: Pure functions, helpers, validations
-```
+1. Identify the behavior, risk, boundary, and cheapest reliable test level for the change.
+2. Inspect existing fixtures, test commands, environment assumptions, and neighboring tests before adding a new pattern.
+3. Write tests against observable behavior and public contracts, not private implementation details.
+4. Run focused tests first, then typecheck/lint/build and the broader suite as appropriate. Preserve the first useful failure output.
+5. Review untested branches, flaky assumptions, compatibility, security, performance, and operational recovery before declaring done.
 
-- **Unit Tests:** Must be extremely fast, isolated, and deterministic. Mock all external file systems, network adapters, and databases.
-- **Integration Tests:** Verify interactions between layers (e.g., DB repositories, queue workers, API routers). Run these against real ephemeral databases (e.g., in docker containers).
-- **End-to-End (E2E) Tests:** Focus only on critical paths (e.g., signup flow, checkout flow). Do not write E2E tests for minor UI details.
+## Test-level selection
 
-## 2. Test Content Rules
-- **Behavior, Not Implementation:** Assert on the observable public output of functions, not on private properties or internal methods.
-- **Deterministic:** Avoid flakiness. Never rely on current system times, random number generators, or external network availability without explicit stubbing.
-- **AAA Pattern:** Explicitly structure test cases using the Arrange-Act-Assert format. Keep these blocks readable.
+| Level | Use for | Baseline |
+| --- | --- | --- |
+| Unit | Pure logic, parsing, validation, mapping, state transitions | Fast, isolated, deterministic |
+| Integration | Database, filesystem, queues, adapters, and layer contracts | Real ephemeral dependency where practical |
+| End-to-end | A small number of critical user journeys | Stable environment and explicit cleanup |
+| Property or fuzz | Parsers, invariants, and broad input spaces | Bounded generation and reproducible seeds |
 
-## 3. Error Handling Standard
-Errors must be deliberately categorized and handled. Do not swallow exceptions.
-- **Classification:** Differentiate between validation errors (400), authentication failures (401), authorization failures (403), resource not found (404), conflicts (409), rate limits (429), and internal server crashes (500).
-- **Production Safety:**
-  - Never return stack traces, internal framework errors, or raw database queries to public API clients.
-  - Log full error traces internally with corresponding request IDs.
-  - Expose a clean, friendly message to the end user.
+Do not mock the behavior under test. Stub slow or nondeterministic boundaries deliberately, and use contract tests when a mock could drift from a provider. Freeze time and randomness where assertions depend on them; never depend on public internet availability for ordinary tests.
 
-## 4. Code Review Checklist
-Every non-trivial merge request must be evaluated using these guidelines:
+## Case design
 
-| Review Area | Target Check |
-| :--- | :--- |
-| **Correctness** | Does the code solve the specific business requirements? |
-| **Edge Cases** | How does the code handle null values, empty lists, or timeouts? |
-| **Security** | Are there open SQL injections, XSS, or missing authorization policies? |
-| **Performance** | Are we introducing N+1 queries, unindexed filters, or memory leaks? |
-| **Testing** | Are the additions covered by automated tests? Do they test behavior? |
-| **Backward Compat** | Will this deployment break current API users or active sessions? |
+For each non-trivial behavior, cover a normal case, a boundary or empty case, an invalid-input case, and the most consequential failure or authorization case. Use Arrange–Act–Assert, name the business behavior, and assert the smallest stable outcome. Include duplicate delivery or retry cases for idempotent workflows.
 
-**Reviewer Mindset:** Ask *"What could break here?"* and *"How does this code fail?"* before checking if it runs successfully under the happy path.
+## Failure handling
+
+Classify errors deliberately: validation, authentication, authorization, not found, conflict, rate limit, dependency failure, timeout, and unexpected internal failure. Tests must verify safe public responses, preserved request or correlation IDs, cleanup, retry bounds, and that sensitive details are not leaked.
+
+## Review checklist
+
+| Area | Ask |
+| --- | --- |
+| Correctness | Does the change satisfy each acceptance criterion? |
+| Edge cases | What happens with empty, malformed, duplicate, stale, concurrent, or oversized input? |
+| Security | Can a caller bypass authorization or inject data into another context? |
+| Compatibility | Do existing clients, migrations, sessions, and serialized formats still work? |
+| Performance | Is work bounded, and did query, bundle, memory, or latency cost change? |
+| Operability | Can the failure be observed, retried, rolled back, or recovered? |
+
+## Done when
+
+The relevant tests pass in a clean-enough environment, failure paths are covered, flaky or skipped tests have a reason, the review found no unowned high-risk gap, and the final report includes exact commands rather than a generic “tested.”

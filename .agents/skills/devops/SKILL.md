@@ -1,48 +1,41 @@
 ---
 name: devops
 description: >-
-  DevOps standard covering CI/CD pipelines, Docker containerization, production deployment checklist,
-  observability, logging patterns, and Git workflow rules. Activate when shipping code.
+  DevOps engineering for CI/CD, containers, deployments, observability, Git workflows, and operational recovery.
+  Activate when shipping code, changing runtime infrastructure, or operating a service.
 ---
 
-# DevOps & Operations Standard
+# DevOps: Safe Delivery and Operations
 
-## 1. Automated CI/CD Pipelines
-No manual build or deployment steps are allowed.
-- **Continuous Integration (CI) Stages:** Enforce the following execution order for every Pull Request:
-  ```
-  Install Dependencies ──► Lint Code ──► Run Typechecks ──► Run Tests ──► Build Artifact
-  ```
-- **Deployment Safety:** Do not deploy code that has failed any CI stages.
-- **Rollback Readiness:** Every deployment must have a verified, quick rollback mechanism.
+## Default workflow
 
-## 2. Docker Best Practices
-- **Multi-Stage Builds:** Compile code in a heavy build stage, then copy final artifacts into a minimal runtime image.
-- **Minimal Images:** Use lightweight base images (e.g., `alpine`, `distroless`) to reduce the container attack surface.
-- **Non-Root Execution:** Never run container application processes as `root` in production. Define a dedicated user.
-- **Pruning:** Use a strict `.dockerignore` file to exclude local `node_modules`, build caches, git history, and secrets.
-- **No Embedded Secrets:** Never hardcode secrets, passwords, or API keys inside the Docker image. Inject them at runtime using environment variables.
+1. Read the existing pipeline, deployment target, runtime configuration, secrets path, health checks, and rollback procedure.
+2. Make the smallest repeatable change and validate it locally or in an isolated environment before release.
+3. Gate delivery on install, lint, typecheck, tests, security checks, and build steps that actually apply to the project.
+4. Deploy with a staged or reversible mechanism, observe health and key signals, and document rollback or recovery.
 
-## 3. Pre-Production Deployment Checklist
-Before triggering a production deploy, verify:
-- [ ] Environment variables are fully populated and validated on application boot.
-- [ ] Database migrations are executed and verified backward compatible.
-- [ ] HTTPS is enforced. CORS origins are restricted to explicit white lists.
-- [ ] Security headers (HSTS, CSP, X-Frame-Options) are configured.
-- [ ] Logging systems are active and sending JSON logs to a centralized collector.
-- [ ] Health checks (`/health` and `/ready` endpoints) are responding correctly.
-- [ ] Production databases have automated backup schedules and retention rules active.
+## CI/CD baseline
 
-## 4. Observability & Logging
-- **Structured Logs:** Output all production application logs in JSON format.
-- **Required Metadata:** Every log entry must include `timestamp`, `level` (INFO/WARN/ERROR/DEBUG), `request_id` (traced across service hops), `user_id` (if authenticated), and `duration_ms` (for performance profiling).
-- **Log Scrubbing:** Never log user passwords, access tokens, API credentials, or credit card numbers.
-- **Health Checks vs Readiness:**
-  - `/health` or `/live`: Quick check verifying if the process is running.
-  - `/ready`: Verifies database connectivity, cache response, and crucial external dependencies.
+Prefer a pipeline whose order matches dependency and feedback cost: install with a lockfile, lint/static analysis, typecheck, focused tests, broader tests, security/dependency checks, then build/package. Do not claim every repository needs every tool; make the gate explicit and fail closed for the checks the project has adopted. Never deploy an artifact that failed its required gates.
 
-## 5. Git Workflow & Commits
-- **Branch Names:** Prefix branches semantic-first: `feature/`, `fix/`, `refactor/`, `docs/`, `chore/`.
-- **Commits:** Keep commits small, atomic, and well-described.
-- **Conventional Commits:** Format messages: `feat(auth): add MFA verification` or `fix(billing): correct stripe tax rounding`.
-- **Clean Branches:** Do not commit broken compile states to long-lived shared branches.
+Every release needs an identified artifact, environment configuration, migration behavior, health/readiness check, owner, observation window, and rollback or forward-recovery path. Treat database migrations and feature flags as part of the release, not an afterthought.
+
+## Container baseline
+
+Use multi-stage builds when they reduce the runtime image, pin base images appropriately, keep `.dockerignore` free of source secrets and caches, run as a non-root user, and set a bounded process or resource policy where the platform supports it. Do not put credentials in images or build logs. Scan images and dependencies according to the project's risk and compliance requirements.
+
+## Production readiness
+
+Before release, verify configuration validation, HTTPS and intentional CORS, security headers, migration compatibility, backup status, health and readiness endpoints, alert ownership, and log redaction. Keep `/health` or `/live` cheap and process-oriented; keep `/ready` dependency-aware without turning a transient optional service into an unexplained total outage.
+
+## Observability
+
+Use structured logs with timestamp, level, service/version, request or trace ID, outcome, and duration. Include authenticated subject or tenant only when necessary and safe. Never log passwords, tokens, authorization headers, payment data, or raw sensitive payloads. Add metrics or traces for latency, error rate, saturation, queue age, dependency failures, and deployment version where the platform supports them.
+
+## Git and recovery
+
+Keep commits atomic and explain intent. Use the repository's branch and commit conventions; do not rewrite shared history or commit broken states to long-lived branches. Practice rollback or restore procedures before a high-risk release, and distinguish a reversible application rollback from a destructive schema rollback.
+
+## Done when
+
+The change is reproducible, required gates pass, secrets are protected, deployment and migration behavior are compatible, health and observability are usable, and a tested rollback or recovery path exists.

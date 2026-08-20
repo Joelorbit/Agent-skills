@@ -1,94 +1,58 @@
-# Engineering Constitution
+# Agent Skills Pack
 
-> Do not blindly implement requests. First determine what the production-quality
-> implementation requires. Identify missing requirements, architectural risks,
-> security gaps, edge cases, and data integrity concerns. Prefer the simplest
-> robust solution. Never silently make a dangerous assumption. If an assumption
-> is unavoidable, state it and choose the safest reasonable default.
+This directory contains **portable, composable skills for software-engineering agents**. Treat each skill as a focused capability package rather than a project-wide prompt. Load a skill when its activation description matches the task, then follow the target repository's own instructions and the user's explicit requirements.
 
----
+## Operating contract
 
-## Development Phases
+Use the following sequence for non-trivial work:
 
-Every significant implementation follows these phases in order.
-Skip a phase only when explicitly justified.
+1. **Understand.** Inspect the repository, existing instructions, runtime, tests, and relevant interfaces before making assumptions.
+2. **Plan.** State the smallest useful scope, acceptance criteria, risks, and dependencies. Ask only for decisions that materially block safe progress.
+3. **Design.** Choose boundaries, data flow, error behavior, and rollback or recovery paths before implementation.
+4. **Threat-model.** Identify trust boundaries, sensitive data, destructive operations, and likely abuse paths.
+5. **Implement.** Make the smallest coherent change, preserving existing conventions unless there is a documented reason to change them.
+6. **Verify.** Run the narrowest relevant checks first, then the broader suite. Inspect both success and failure paths.
+7. **Review and harden.** Check compatibility, security, performance, accessibility, observability, and operational recovery.
+8. **Document and hand off.** Summarize changed files, verification performed, remaining risks, and exact next steps.
 
-```
-PHASE 1  — Understand       Clarify problem, users, constraints
-PHASE 2  — Plan             Scope, requirements, MVP boundary
-PHASE 3  — Design           Architecture, data model, API contracts
-PHASE 4  — Threat Model     Security risks and mitigations
-PHASE 5  — Implement        Build incrementally, smallest working units
-PHASE 6  — Test             Verify correctness at every level
-PHASE 7  — Review           Correctness, security, performance
-PHASE 8  — Harden           Error handling, edge cases, input validation
-PHASE 9  — Document         README, API docs, architecture decisions
-PHASE 10 — Deploy           Config, migrations, health checks
-PHASE 11 — Verify           Smoke test, monitoring, rollback readiness
-```
+For a one-line fix, compress the sequence rather than skipping its essential checks. For risky, destructive, or production-facing work, make the sequence explicit and obtain confirmation before irreversible actions.
 
----
+## Instruction precedence
 
-## Universal Coding Principles
+Apply instructions in this order: system and platform safety requirements; the user's request; repository-local instructions such as `AGENTS.md`, `CLAUDE.md`, or `CONTRIBUTING.md`; the most specific applicable skill; then general pack guidance. When instructions conflict, choose the higher-precedence rule, state the conflict briefly, and do not silently weaken a security or data-integrity control.
 
-| Principle                   | Guidance                                             |
-| --------------------------- | ---------------------------------------------------- |
-| Readable                    | The next developer understands it without asking you |
-| Small                       | Functions, classes, and modules do one thing well    |
-| Typed                       | Explicit types at trust boundaries, no unsafe casts  |
-| Testable                    | Pure logic separated from side effects               |
-| KISS                        | Simplest solution that handles real requirements     |
-| YAGNI                       | Don't build what isn't needed yet                    |
-| DRY                         | Without over-abstraction                             |
-| Composition over inheritance | Where appropriate                                    |
+## Pack-wide engineering standards
 
-**Avoid:** God classes, circular dependencies, deep nesting (>3 levels),
-magic numbers/strings, swallowed exceptions, TODO-driven architecture.
+| Area | Default standard |
+| --- | --- |
+| Scope | Prefer a small, verifiable change. Record out-of-scope ideas instead of silently adding them. |
+| Boundaries | Validate untrusted input at the boundary and keep domain rules independent of transport and storage. |
+| Errors | Preserve useful context, return safe user-facing errors, and never swallow failures. |
+| Security | Use least privilege, deny by default, protect secrets, and authorize every resource access server-side. |
+| Data | Make integrity constraints explicit and design migrations for compatibility and recovery. |
+| Testing | Test observable behavior; include at least one failure or boundary case for every non-trivial path. |
+| Operations | Use repeatable commands, structured logs, health/readiness checks, and a rollback or recovery path. |
+| Documentation | Update the smallest authoritative document and include commands another agent can run to verify the result. |
 
----
+Avoid god modules, speculative abstractions, hidden global state, magic values, unbounded retries, hardcoded credentials, and “TODO” placeholders that conceal unfinished design.
 
-## Quick Decision Framework
+## Skill selection
 
-Before merging anything:
+Use the most specific skill that applies. Skills may compose; when they overlap, keep the concern-specific rule and use the shared pack standards for cross-cutting behavior.
 
-1. Is this the simplest solution that handles real requirements?
-2. What happens when this fails?
-3. What happens at scale?
-4. Can this be exploited?
-5. Can the next developer understand this without asking me?
-6. Can this be rolled back?
+| Skill | Activate when you need to… |
+| --- | --- |
+| `engineering` | Discover a problem, define requirements, plan scope, or document a project. |
+| `architecture` | Design boundaries, data flow, repository structure, or a non-trivial subsystem. |
+| `security` | Model threats or implement authentication, authorization, input, secrets, upload, or AI safety controls. |
+| `backend` | Build APIs, workers, integrations, caching, webhooks, or payment flows. |
+| `frontend` | Build or review UI, interaction states, accessibility, responsive behavior, or client performance. |
+| `database` | Design schemas, constraints, queries, transactions, migrations, backups, or recovery. |
+| `testing` | Create tests, debug failures, review code, or assess release confidence. |
+| `devops` | Change CI/CD, containers, deployments, observability, Git workflows, or runtime operations. |
+| `handoff` | Transfer work between agents or sessions without losing context or verification state. |
+| `skill-creator` | Create, revise, package, or validate an agent skill. |
 
----
+## Definition of done
 
-## Definition of Done
-
-A feature is done when:
-
-```
-✅ Requirements satisfied          ✅ Logging implemented
-✅ Architecture respected          ✅ Documentation updated
-✅ Types valid, lint passes        ✅ API documented
-✅ Tests pass                      ✅ Performance acceptable
-✅ Security reviewed               ✅ Accessibility considered
-✅ All error paths handled         ✅ CI passes
-✅ Migrations created (if needed)  ✅ Rollback strategy exists
-```
-
----
-
-## Available Engineering Skills
-
-Activate the relevant skill when working on that concern:
-
-| Skill            | Covers                                                     |
-| ---------------- | ---------------------------------------------------------- |
-| `engineering`    | Product discovery, requirements, project management, docs  |
-| `security`       | Auth, authorization, vulnerabilities, AI safety, secrets   |
-| `architecture`   | System design, layered architecture, repository structure  |
-| `backend`        | API design, external APIs, caching, payments               |
-| `frontend`       | UI states, components, accessibility, responsive design, EyuTheme |
-| `database`       | Schema design, integrity, SQL performance, backups         |
-| `testing`        | Test strategy, error handling, code review                 |
-| `devops`         | CI/CD, Docker, deployment, observability, Git              |
-| `handoff`        | Agent/session handoffs, context transfer, continuation     |
-| `skill-creator`  | Authoring new skills: structure, frontmatter, verification |
+Work is complete only when the requested behavior is implemented, relevant automated checks pass, failure paths are considered, security and compatibility risks are reviewed, documentation is current, and the handoff identifies any unverified assumption. Do not claim a check passed unless it was actually run.

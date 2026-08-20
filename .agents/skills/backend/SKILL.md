@@ -1,56 +1,53 @@
 ---
 name: backend
 description: >-
-  Backend engineering standard covering API design, external API integrations,
-  caching strategies, and payment systems. Activate when building server-side features.
+  Backend engineering for APIs, workers, external integrations, caching, webhooks, and payment flows.
+  Activate when building or changing server-side behavior or public service contracts.
 ---
 
-# Backend Engineering Standard
+# Backend: Contracts and Reliability
 
-## 1. API Design Standard
-We build RESTful APIs by default.
-- **Resource Naming:** Use plural nouns for resources (e.g., `/api/v1/projects`). Avoid verbs in resource paths.
-- **HTTP Semantics:**
-  - `GET`: Idempotent read. Returns 200 OK.
-  - `POST`: Non-idempotent resource creation. Returns 201 Created.
-  - `PUT`: Idempotent full replacement of a resource. Returns 200 OK or 204 No Content.
-  - `PATCH`: Idempotent partial update. Returns 200 OK.
-  - `DELETE`: Idempotent deletion. Returns 200 OK or 204 No Content.
-- **Payload Design:** Wrap root collection responses in objects (e.g., `{"data": [...]}`) to enable future metadata extension (e.g., pagination).
-- **No Details Exposure:** Never expose internal database auto-increment IDs to public clients. Use UUIDs, HashIDs, or ULIDs.
+## Default workflow
 
-## 2. Request Handling & Validation
-- **Boundary Validation:** Parse, validate, and sanitize all input payloads immediately at the entry point controller before running any application logic.
-- **Consistent Errors:** Return standardized JSON error shapes for validation failures:
-  ```json
-  {
-    "error": {
-      "code": "bad_request",
-      "message": "Validation failed",
-      "details": {
-        "email": "Must be a valid email address"
-      }
-    }
+1. Identify the caller, resource or command, authorization rule, compatibility promise, and observable outcome.
+2. Define request and response schemas, status/error semantics, pagination, idempotency, and limits before implementation.
+3. Validate at the transport boundary, authorize at the resource boundary, and map internal errors to safe public responses.
+4. Isolate vendor calls behind an adapter with explicit timeouts, retry policy, telemetry, and a degraded-mode or recovery path.
+5. Test happy, invalid, unauthorized, duplicate, timeout, and dependency-failure cases.
+
+## API defaults
+
+Use resource-oriented paths and plural nouns unless the domain is command-oriented. Treat HTTP semantics accurately: `GET` is safe, `POST` creates or starts an action, `PUT` replaces, `PATCH` partially updates, and `DELETE` removes or deactivates. Document exceptions rather than forcing a misleading REST shape.
+
+Return a stable error envelope such as:
+
+```json
+{
+  "error": {
+    "code": "validation_failed",
+    "message": "The request could not be accepted.",
+    "details": {"email": "Must be a valid email address"},
+    "request_id": "req_123"
   }
-  ```
+}
+```
 
-## 3. External API Integrations
-Always treat third-party APIs as untrusted and unstable.
-- **Timeouts:** Enforce explicit connection and read timeouts on all outgoing HTTP clients (default: 5s connection, 10s read). Never block worker threads indefinitely.
-- **Retries:** Use exponential backoff with jitter only for idempotent requests or operations using idempotency keys.
-- **Circuit Breakers:** Implement circuit breakers for critical external services. If a dependency is down, degrade functionality gracefully instead of crashing.
-- **Contracts:** Map external API payloads immediately to internal domain objects to isolate third-party changes.
+Use opaque public identifiers when exposing resources. Do not promise a response wrapper, field, status code, or ordering without a compatibility and pagination plan. Treat limits, sorting, filtering, and cursor semantics as part of the contract.
 
-## 4. Caching Strategy
-- **TTL Constraint:** Every cached key *must* have a defined Time-To-Live (TTL).
-- **Deterministic Keys:** Namespace keys cleanly: `domain:resource_type:resource_id` (e.g., `billing:invoice:inv_123`).
-- **Cache Invalidation:** Use event-driven invalidation. Don't rely solely on TTL to sync database updates with the cache.
-- **Cache Stampede Prevention:** For high-traffic reads, use locking, single-flight groups, or background revalidation to prevent concurrent requests from crushing the database on cache miss.
+## Integration defaults
 
-## 5. Payment Systems Standard
-- **Never Trust the Client:** Do not use frontend-reported payment status to fulfill orders.
-- **Webhooks:** Fulfill orders asynchronously using cryptographically signed webhooks sent directly from the payment provider (e.g., Stripe, PayPal).
-- **Idempotency:** Webhook processing must be idempotent. Store payment intent IDs or transaction IDs and verify they have not been processed before updating billing state.
-- **State Machine:** Model payment flows using a explicit state machine:
-  `Created ──► Pending ──► Succeeded | Failed | Refunded`
-  Validate all transitions. Do not use a simple boolean flag like `is_paid`.
+Set explicit connect, read, and total deadlines; a starting default is **5 seconds connect and 10 seconds read**, adjusted to the dependency's SLO. Retry only transient failures for idempotent operations or requests carrying a provider-supported idempotency key. Use exponential backoff with jitter, a bounded attempt count, and a circuit breaker or queue for critical dependencies. Never retry validation errors, authorization failures, or non-idempotent writes without protection.
+
+Map third-party payloads at the adapter boundary. Record provider request IDs, redact secrets and payment data, and make duplicate delivery safe. Do not hold a database transaction open across a slow network call.
+
+## Caching
+
+Define a namespaced key, owner, TTL, freshness rule, invalidation event, and failure behavior for every cache. Prevent stampedes with single-flight locking or background revalidation on hot reads. Treat stale or missing cache data as an expected path, not an exceptional crash.
+
+## Payments and webhooks
+
+Never fulfill an order from client-reported payment state. Verify the provider signature, event freshness, event type, and resource identity; persist a deduplication key; process asynchronously where practical; and make the handler idempotent. Model payment state transitions explicitly, for example `created → pending → succeeded|failed → refunded`, and reject impossible transitions.
+
+## Done when
+
+The contract is documented, inputs and permissions are enforced, retries and timeouts are bounded, duplicate and failure paths are tested, sensitive logs are redacted, and the release has a compatibility and rollback story.
